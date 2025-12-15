@@ -15,38 +15,110 @@ const ExportPanel = ({ documents }: ExportPanelProps) => {
   const receipts = completedDocs.filter(d => d.documentType === 'receipt');
 
   const exportToExcel = (docs: ProcessedDocument[], fileName: string) => {
-    const data = docs.map(doc => ({
+    if (docs.length === 0) {
+      alert(`No ${fileName.toLowerCase()} to export.`);
+      return;
+    }
+
+    // Sort documents by date (newest first)
+    const sortedDocs = [...docs].sort((a, b) => {
+      const dateA = a.extractedData.documentDate ? new Date(a.extractedData.documentDate).getTime() : 0;
+      const dateB = b.extractedData.documentDate ? new Date(b.extractedData.documentDate).getTime() : 0;
+      return dateB - dateA;
+    });
+
+    // Prepare data rows
+    const data = sortedDocs.map(doc => ({
       'File Name': doc.fileName,
-      'Document Date': doc.extractedData.documentDate || 'Not found',
-      'Issuer': doc.extractedData.issuer || 'Not found',
-      'Document Number': doc.extractedData.documentNumber || 'Not found',
-      'Original Currency': doc.extractedData.originalCurrency || 'Not found',
-      'Total Amount (Original)': doc.extractedData.totalAmount || 'Not found',
-      'Total Amount (CHF)': doc.extractedData.totalAmountCHF || 'Not found',
-      'VAT Amount (Original)': doc.extractedData.vatAmount || 'Not found',
-      'VAT Amount (CHF)': doc.extractedData.vatAmountCHF || 'Not found',
-      'Net Amount (Original)': doc.extractedData.netAmount || 'Not found',
-      'Net Amount (CHF)': doc.extractedData.netAmountCHF || 'Not found',
-      'Expense Category': doc.extractedData.expenseCategory || 'Not found',
+      'Document Date': doc.extractedData.documentDate || '',
+      'Issuer/Vendor': doc.extractedData.issuer || '',
+      'Document Number': doc.extractedData.documentNumber || '',
+      'Expense Category': doc.extractedData.expenseCategory || '',
+      'Original Currency': doc.extractedData.originalCurrency || '',
+      'Total Amount (Original)': doc.extractedData.totalAmount ?? '',
+      'VAT Amount (Original)': doc.extractedData.vatAmount ?? '',
+      'Net Amount (Original)': doc.extractedData.netAmount ?? '',
+      'Total Amount (CHF)': doc.extractedData.totalAmountCHF ?? '',
+      'VAT Amount (CHF)': doc.extractedData.vatAmountCHF ?? '',
+      'Net Amount (CHF)': doc.extractedData.netAmountCHF ?? '',
     }));
 
-    const worksheet = XLSX.utils.json_to_sheet(data);
+    // Calculate summary totals
+    const totals = {
+      totalCHF: sortedDocs.reduce((sum, doc) => sum + (doc.extractedData.totalAmountCHF || 0), 0),
+      vatCHF: sortedDocs.reduce((sum, doc) => sum + (doc.extractedData.vatAmountCHF || 0), 0),
+      netCHF: sortedDocs.reduce((sum, doc) => sum + (doc.extractedData.netAmountCHF || 0), 0),
+    };
+
+    // Add summary row
+    const summaryRow = {
+      'File Name': 'TOTAL',
+      'Document Date': '',
+      'Issuer/Vendor': '',
+      'Document Number': '',
+      'Expense Category': '',
+      'Original Currency': 'CHF',
+      'Total Amount (Original)': '',
+      'VAT Amount (Original)': '',
+      'Net Amount (Original)': '',
+      'Total Amount (CHF)': totals.totalCHF,
+      'VAT Amount (CHF)': totals.vatCHF,
+      'Net Amount (CHF)': totals.netCHF,
+    };
+
+    const allData = [...data, summaryRow];
+
+    // Create worksheet
+    const worksheet = XLSX.utils.json_to_sheet(allData);
+    
+    // Set column widths
+    const colWidths = [
+      { wch: 30 }, // File Name
+      { wch: 12 }, // Document Date
+      { wch: 20 }, // Issuer/Vendor
+      { wch: 15 }, // Document Number
+      { wch: 18 }, // Expense Category
+      { wch: 10 }, // Original Currency
+      { wch: 18 }, // Total Amount (Original)
+      { wch: 18 }, // VAT Amount (Original)
+      { wch: 18 }, // Net Amount (Original)
+      { wch: 18 }, // Total Amount (CHF)
+      { wch: 18 }, // VAT Amount (CHF)
+      { wch: 18 }, // Net Amount (CHF)
+    ];
+    worksheet['!cols'] = colWidths;
+
+    // Note: xlsx library doesn't support cell styling, but the summary row is included
+
+    // Create workbook and add worksheet
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Data');
     
-    // Auto-size columns
-    const colWidths = Object.keys(data[0] || {}).map(key => ({
-      wch: Math.max(key.length, 15)
-    }));
-    worksheet['!cols'] = colWidths;
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
+    const finalFileName = `${fileName}_${timestamp}.xlsx`;
     
-    XLSX.writeFile(workbook, `${fileName}.xlsx`);
+    XLSX.writeFile(workbook, finalFileName);
   };
 
   const exportAll = () => {
-    if (bankStatements.length > 0) exportToExcel(bankStatements, 'Bank_Statements');
-    if (invoices.length > 0) exportToExcel(invoices, 'Invoices');
-    if (receipts.length > 0) exportToExcel(receipts, 'Receipts');
+    let exportedCount = 0;
+    if (bankStatements.length > 0) {
+      exportToExcel(bankStatements, 'Bank_Statements');
+      exportedCount++;
+    }
+    if (invoices.length > 0) {
+      exportToExcel(invoices, 'Invoices');
+      exportedCount++;
+    }
+    if (receipts.length > 0) {
+      exportToExcel(receipts, 'Receipts');
+      exportedCount++;
+    }
+
+    if (exportedCount === 0) {
+      alert('No completed documents to export.');
+    }
   };
 
   if (completedDocs.length === 0) return null;

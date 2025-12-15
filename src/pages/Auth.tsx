@@ -9,8 +9,14 @@ import logo from '@/assets/logo.png';
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 import { z } from 'zod';
 
-const emailSchema = z.string().email('Please enter a valid email address');
-const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
+const emailSchema = z.string().refine((val) => {
+  // Allow "admin" as special case, otherwise require valid email
+  return val === 'admin' || z.string().email().safeParse(val).success;
+}, 'Please enter a valid email address or "admin" for testing');
+const passwordSchema = z.string().refine((val) => {
+  // Allow "admin" as special case, otherwise require at least 6 characters
+  return val === 'admin' || val.length >= 6;
+}, 'Password must be at least 6 characters or "admin" for testing');
 
 const Auth = () => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -151,13 +157,13 @@ const Auth = () => {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-foreground">Email</Label>
+                <Label htmlFor="email" className="text-foreground">Email or Username</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     id="email"
-                    type="email"
-                    placeholder="you@example.com"
+                    type="text"
+                    placeholder="you@example.com or admin"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10"

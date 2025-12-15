@@ -4,16 +4,32 @@ import DocumentCard from '@/components/DocumentCard';
 import ExportPanel from '@/components/ExportPanel';
 import StatsBar from '@/components/StatsBar';
 import DataTableView from '@/components/DataTableView';
+import IssuerGroupView from '@/components/IssuerGroupView';
+import SummaryView from '@/components/SummaryView';
+import AnalyzeButton from '@/components/AnalyzeButton';
 import { Button } from '@/components/ui/button';
 import { useDocumentProcessor } from '@/hooks/useDocumentProcessor';
-import { Trash2, LayoutGrid, Table2, RefreshCw, Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { Trash2, LayoutGrid, Table2, RefreshCw, Loader2, Building2, BarChart3 } from 'lucide-react';
+import { useState, useMemo } from 'react';
 
-type ViewMode = 'cards' | 'table';
+type ViewMode = 'cards' | 'table' | 'grouped' | 'summary';
 
 const Index = () => {
   const { documents, isProcessing, isLoading, processFiles, clearDocuments, refreshDocuments } = useDocumentProcessor();
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
+
+  // Sort documents by date (newest first)
+  const sortedDocuments = useMemo(() => {
+    return [...documents].sort((a, b) => {
+      const dateA = a.extractedData.documentDate 
+        ? new Date(a.extractedData.documentDate).getTime() 
+        : a.uploadedAt.getTime();
+      const dateB = b.extractedData.documentDate 
+        ? new Date(b.extractedData.documentDate).getTime() 
+        : b.uploadedAt.getTime();
+      return dateB - dateA;
+    });
+  }, [documents]);
 
   const completedCount = documents.filter(d => d.status === 'completed').length;
 
@@ -54,11 +70,20 @@ const Index = () => {
 
         {/* Stats Bar */}
         <div className="mb-8">
-          <StatsBar documents={documents} />
+          <StatsBar documents={sortedDocuments} />
         </div>
 
+        {/* Analyze Button */}
+        {sortedDocuments.length > 0 && (
+          <div className="mb-8 flex justify-center">
+            <div className="max-w-md w-full">
+              <AnalyzeButton documents={sortedDocuments} />
+            </div>
+          </div>
+        )}
+
         {/* Main Content */}
-        {documents.length > 0 && (
+        {sortedDocuments.length > 0 && (
           <>
             {/* View Toggle & Actions */}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
@@ -83,6 +108,24 @@ const Index = () => {
                     >
                       <Table2 className="w-4 h-4 mr-1" />
                       Table
+                    </Button>
+                    <Button
+                      variant={viewMode === 'grouped' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setViewMode('grouped')}
+                      className="h-8 px-3"
+                    >
+                      <Building2 className="w-4 h-4 mr-1" />
+                      By Vendor
+                    </Button>
+                    <Button
+                      variant={viewMode === 'summary' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setViewMode('summary')}
+                      className="h-8 px-3"
+                    >
+                      <BarChart3 className="w-4 h-4 mr-1" />
+                      Summary
                     </Button>
                   </div>
                 )}
@@ -110,12 +153,12 @@ const Index = () => {
             </div>
 
             {/* Content based on view mode */}
-            {viewMode === 'cards' ? (
+            {viewMode === 'cards' && (
               <div className="grid lg:grid-cols-3 gap-8">
                 {/* Documents List */}
                 <div className="lg:col-span-2">
                   <div className="grid sm:grid-cols-2 gap-4">
-                    {documents.map(doc => (
+                    {sortedDocuments.map(doc => (
                       <DocumentCard key={doc.id} document={doc} />
                     ))}
                   </div>
@@ -123,16 +166,46 @@ const Index = () => {
 
                 {/* Export Panel */}
                 <div className="lg:col-span-1">
-                  <ExportPanel documents={documents} />
+                  <ExportPanel documents={sortedDocuments} />
                 </div>
               </div>
-            ) : (
+            )}
+
+            {viewMode === 'table' && (
               <div className="space-y-6">
-                <DataTableView documents={documents} />
+                <DataTableView documents={sortedDocuments} />
                 
                 {/* Export Panel below table */}
                 <div className="max-w-md mx-auto">
-                  <ExportPanel documents={documents} />
+                  <ExportPanel documents={sortedDocuments} />
+                </div>
+              </div>
+            )}
+
+            {viewMode === 'grouped' && (
+              <div className="grid lg:grid-cols-3 gap-8">
+                {/* Grouped Documents */}
+                <div className="lg:col-span-2">
+                  <IssuerGroupView documents={sortedDocuments} />
+                </div>
+
+                {/* Export Panel */}
+                <div className="lg:col-span-1">
+                  <ExportPanel documents={sortedDocuments} />
+                </div>
+              </div>
+            )}
+
+            {viewMode === 'summary' && (
+              <div className="grid lg:grid-cols-3 gap-8">
+                {/* Summary View */}
+                <div className="lg:col-span-2">
+                  <SummaryView documents={sortedDocuments} />
+                </div>
+
+                {/* Export Panel */}
+                <div className="lg:col-span-1">
+                  <ExportPanel documents={sortedDocuments} />
                 </div>
               </div>
             )}

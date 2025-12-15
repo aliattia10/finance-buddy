@@ -91,22 +91,46 @@ const DocumentCard = ({ document }: DocumentCardProps) => {
             </div>
             <div>
               <span className="text-muted-foreground text-xs block mb-1">Issuer</span>
-              <span className="text-foreground truncate block">{extractedData.issuer || 'Not found'}</span>
+              <span className="text-foreground truncate block" title={extractedData.issuer || undefined}>
+                {extractedData.issuer || 'Not found'}
+              </span>
             </div>
           </div>
+          {extractedData.documentNumber && (
+            <div className="text-sm">
+              <span className="text-muted-foreground text-xs block mb-1">Document #</span>
+              <span className="text-foreground font-mono text-xs">{extractedData.documentNumber}</span>
+            </div>
+          )}
 
-          <div className="pt-3 border-t border-border">
+          <div className="pt-3 border-t border-border space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground text-xs">Total (CHF)</span>
               <span className="font-serif text-lg text-foreground">
                 {formatCurrency(extractedData.totalAmountCHF)}
               </span>
             </div>
-            {extractedData.originalCurrency && extractedData.originalCurrency !== 'CHF' && (
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-muted-foreground text-xs">Original</span>
+            {extractedData.originalCurrency && extractedData.originalCurrency !== 'CHF' && extractedData.totalAmount && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground text-xs">Original ({extractedData.originalCurrency})</span>
                 <span className="text-sm text-muted-foreground">
                   {formatCurrency(extractedData.totalAmount, extractedData.originalCurrency)}
+                </span>
+              </div>
+            )}
+            {extractedData.vatAmountCHF && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground text-xs">VAT (CHF)</span>
+                <span className="text-sm text-muted-foreground">
+                  {formatCurrency(extractedData.vatAmountCHF)}
+                </span>
+              </div>
+            )}
+            {extractedData.netAmountCHF && (
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground text-xs">Net (CHF)</span>
+                <span className="text-sm text-muted-foreground">
+                  {formatCurrency(extractedData.netAmountCHF)}
                 </span>
               </div>
             )}

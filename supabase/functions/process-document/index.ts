@@ -5,15 +5,41 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Currency conversion rates to CHF (approximate)
+// Currency conversion rates to CHF (approximate rates as of 2024)
 const conversionRates: Record<string, number> = {
   'CHF': 1,
-  'EUR': 0.94,
-  'USD': 0.88,
-  'GBP': 1.11,
-  'JPY': 0.0059,
-  'CAD': 0.65,
-  'AUD': 0.57,
+  'EUR': 0.95,
+  'USD': 0.91,
+  'GBP': 1.15,
+  'JPY': 0.0064,
+  'CAD': 0.67,
+  'AUD': 0.60,
+  'SEK': 0.085,
+  'NOK': 0.083,
+  'DKK': 0.13,
+  'PLN': 0.23,
+  'CZK': 0.041,
+  'HUF': 0.0026,
+  'RON': 0.20,
+  'BGN': 0.51,
+  'HRK': 0.13,
+  'TRY': 0.027,
+  'RUB': 0.0098,
+  'CNY': 0.13,
+  'HKD': 0.12,
+  'SGD': 0.68,
+  'NZD': 0.56,
+  'ZAR': 0.049,
+  'BRL': 0.18,
+  'MXN': 0.046,
+  'ARS': 0.00091,
+  'KRW': 0.00067,
+  'INR': 0.011,
+  'THB': 0.026,
+  'MYR': 0.21,
+  'IDR': 0.000059,
+  'PHP': 0.016,
+  'VND': 0.000037,
 };
 
 const convertToCHF = (amount: number | null, currency: string | null): number | null => {
@@ -29,8 +55,12 @@ serve(async (req) => {
 
   try {
     const { fileData, fileName, fileType } = await req.json();
-    
-    console.log(`Processing document: ${fileName}, type: ${fileType}`);
+
+    console.log(`Processing document: ${fileName}, type: ${fileType}, data length: ${fileData?.length || 0}`);
+
+    if (!fileData) {
+      throw new Error('No file data provided');
+    }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -38,7 +68,7 @@ serve(async (req) => {
     }
 
     // Prepare the prompt for document analysis
-    const systemPrompt = `You are a financial document analyzer. Analyze the provided document and extract financial information.
+    const systemPrompt = `You are an expert financial document analyzer. Analyze the provided document and extract financial information accurately.
 
 Return a JSON object with this exact structure:
 {
@@ -48,20 +78,39 @@ Return a JSON object with this exact structure:
     "issuer": "bank name or vendor name or null",
     "documentNumber": "invoice/receipt number or null",
     "totalAmount": number or null,
-    "originalCurrency": "CHF" | "EUR" | "USD" | "GBP" | etc or null,
+    "originalCurrency": "CHF" | "EUR" | "USD" | "GBP" | "JPY" | "CAD" | "AUD" | etc or null,
     "vatAmount": number or null,
     "netAmount": number or null,
     "expenseCategory": "travel" | "meals" | "utilities" | "software" | "professional services" | "office supplies" | "telecommunications" | "insurance" | "rent" | "other" or null
   }
 }
 
-Rules:
+Document Type Classification Rules:
+- bank_statement: Documents showing account balances, transactions, statements from banks (UBS, Credit Suisse, etc.)
+- invoice: Formal billing documents with invoice numbers, due dates, company letterheads
+- receipt: Simple receipts, cash register receipts, payment confirmations
+
+Extraction Rules:
 - If information is not clearly visible or unavailable, set it to null (do not guess)
-- For bank statements, the total amount should be the closing balance or total transactions
-- For invoices/receipts, extract the total including VAT
-- Detect the currency from symbols (€, $, CHF, £) or text
-- Categorize expenses based on the vendor/description
-- Only return valid JSON, no other text`;
+- For bank statements: total amount is usually the closing balance or net transactions
+- For invoices/receipts: total amount includes VAT, extract net amount and VAT separately if available
+- Detect currency from symbols (€, $, CHF, Fr., £, ¥) or explicit currency codes
+- Document dates should be in YYYY-MM-DD format
+- Categorize expenses based on vendor type and transaction description
+
+Expense Categories:
+- travel: hotels, airlines, trains, taxis, car rentals
+- meals: restaurants, catering, food delivery
+- utilities: electricity, water, gas, internet, phone
+- software: software licenses, cloud services, IT services
+- professional services: consulting, legal, accounting, marketing
+- office supplies: stationery, equipment, furniture
+- telecommunications: phone, internet, mobile plans
+- insurance: health, liability, property insurance
+- rent: office rent, lease payments
+- other: anything not fitting above categories
+
+Only return valid JSON, no other text or explanations.`;
 
     const userMessage = fileType.startsWith('image/')
       ? {
@@ -69,7 +118,7 @@ Rules:
           content: [
             {
               type: 'text',
-              text: `Analyze this financial document image and extract the data. File name: ${fileName}`,
+              text: `Analyze this financial document image and extract all visible financial information. Look for dates, amounts, vendor names, document numbers, and categorize the expense type. File name: ${fileName}`,
             },
             {
               type: 'image_url',
@@ -81,7 +130,7 @@ Rules:
         }
       : {
           role: 'user',
-          content: `Analyze this financial document (PDF). File name: ${fileName}. The document content is encoded in base64. Extract what you can from the filename and any context available.`,
+          content: `This is a PDF document. The filename is "${fileName}". Please analyze the document content that has been converted to base64. Extract financial information including document type, dates, amounts, currencies, VAT information, and expense categories. Even if the text extraction is imperfect, look for patterns typical of bank statements, invoices, or receipts.`,
         };
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {

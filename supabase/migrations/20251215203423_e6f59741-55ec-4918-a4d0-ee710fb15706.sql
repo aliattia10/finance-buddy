@@ -108,8 +108,38 @@ CREATE TRIGGER update_documents_updated_at
   BEFORE UPDATE ON public.processed_documents
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+-- Create admin user (for testing purposes)
+-- Password: admin
+INSERT INTO auth.users (
+  id,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  created_at,
+  updated_at,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  is_super_admin,
+  role
+) VALUES (
+  '550e8400-e29b-41d4-a716-446655440000',
+  'admin',
+  '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', -- bcrypt hash for 'admin'
+  NOW(),
+  NOW(),
+  NOW(),
+  '{"provider": "email", "providers": ["email"]}'::jsonb,
+  '{"full_name": "Admin User"}'::jsonb,
+  false,
+  'authenticated'
+);
+
+-- Create admin profile
+INSERT INTO public.profiles (id, email, full_name)
+VALUES ('550e8400-e29b-41d4-a716-446655440000', 'admin', 'Admin User');
+
 -- Create storage bucket for documents
-INSERT INTO storage.buckets (id, name, public) 
+INSERT INTO storage.buckets (id, name, public)
 VALUES ('documents', 'documents', false);
 
 -- Storage policies
