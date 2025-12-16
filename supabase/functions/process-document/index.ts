@@ -471,6 +471,14 @@ Be extremely thorough. Read the entire text above. Look for tables, itemized lis
     if (!response.ok) {
       const errorText = await response.text();
       console.error('AI gateway error:', response.status, errorText);
+      console.error('Request details:', {
+        fileName,
+        fileType,
+        isPDF,
+        hasOCR: ocrText.length > 0,
+        ocrLength: ocrText.length,
+        ocrConfidence,
+      });
       
       if (response.status === 429) {
         return new Response(
@@ -484,7 +492,7 @@ Be extremely thorough. Read the entire text above. Look for tables, itemized lis
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      throw new Error(`AI gateway error: ${response.status}`);
+      throw new Error(`AI gateway error: ${response.status} - ${errorText.substring(0, 200)}`);
     }
 
     const aiResponse = await response.json();
