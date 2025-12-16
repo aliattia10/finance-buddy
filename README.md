@@ -16,7 +16,7 @@ AI-powered financial document analysis and organization system for bank statemen
 
 ## Project info
 
-**Repository**: https://github.com/aliattia10/finance-buddy
+**Repository**: https://github.com/alilead/finance-buddy
 
 ## How can I edit this code?
 
